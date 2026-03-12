@@ -746,6 +746,7 @@ function checkAnswer() {
   if (isOk) {
     correctCount++;
     inp.classList.add('correct');
+    playCorrectSound();
     document.getElementById('fb-correct').style.display = 'block';
     document.getElementById('bottom-msg').textContent = 'Đáp án đúng';
     document.getElementById('bottom-msg').className = 'bottom-left c';
@@ -821,6 +822,34 @@ function showFinish() {
   }
   document.getElementById('finish-sub').textContent =
     `Bạn đã học xong "${sets[setIdx].title}" · Độ chính xác: ${accuracy}%`;
+}
+
+// ════════════════════════════════
+// SOUND EFFECTS
+// ════════════════════════════════
+function playCorrectSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Duolingo-like: bright cheerful "ding-ding" — major third interval
+    const notes = [
+      { freq: 1046.5, start: 0.00, dur: 0.15 }, // C6
+      { freq: 1318.5, start: 0.10, dur: 0.20 }, // E6
+      { freq: 1568.0, start: 0.18, dur: 0.28 }, // G6
+    ];
+    notes.forEach(({ freq, start, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    });
+  } catch(e) {}
 }
 
 // ════════════════════════════════
