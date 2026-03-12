@@ -412,8 +412,12 @@ input:checked+.sl-w:before{transform:translateX(20px);}
 // ════════════════════════════════
 const SUPA_URL = 'https://spubuofmbkmwdlusjkyh.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwdWJ1b2ZtYmttd2RsdXNqa3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODEzOTgsImV4cCI6MjA4ODg1NzM5OH0.gJvVzjbWOaQYg30lIPbl5DqwP4Cv_-kX2YgHCACPUbA';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+let supa = null;
 let currentUser = null;
+
+function initSupabase() {
+  supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+}
 
 // ════════════════════════════════
 // STATE
@@ -723,6 +727,7 @@ function loadCard() {
   inp.disabled = false;
   inp.className = 'ans-input';
   document.getElementById('ans-label').style.display = 'block';
+  document.getElementById('ans-label').textContent = showTermFirst ? 'Nhập bằng định nghĩa' : 'Nhập bằng thuật ngữ';
 
   // show term or definition based on setting
   document.getElementById('word-display').textContent = showTermFirst ? card.term : card.def;
@@ -782,7 +787,7 @@ function checkAnswer() {
     document.getElementById('fb-correct').style.display = 'block';
     document.getElementById('bottom-msg').textContent = 'Đáp án đúng';
     document.getElementById('bottom-msg').className = 'bottom-left c';
-    document.getElementById('action-btn').textContent = 'Tôi đã trả lời đúng →';
+    document.getElementById('action-btn').textContent = 'Tiếp tục →';
     queue.shift();
   } else {
     wrongCount++;
@@ -790,9 +795,9 @@ function checkAnswer() {
     document.getElementById('fb-wrong').style.display = 'block';
     document.getElementById('correct-ans-box').style.display = 'block';
     document.getElementById('correct-ans-val').textContent = correctVal;
-    document.getElementById('bottom-msg').textContent = 'Nhập lại đáp án đúng!';
+    document.getElementById('bottom-msg').textContent = 'Sai rồi! Xem đáp án đúng bên trên.';
     document.getElementById('bottom-msg').className = 'bottom-left w';
-    document.getElementById('action-btn').textContent = 'Tôi đã trả lời đúng →';
+    document.getElementById('action-btn').textContent = 'Tiếp tục →';
     queue.push(queue.shift());
   }
   updateProgress();
@@ -817,13 +822,15 @@ function notKnow() {
   document.getElementById('not-know-btn').style.display = 'none';
   document.getElementById('bottom-msg').textContent = 'Nhập lại đáp án đúng!';
   document.getElementById('bottom-msg').className = 'bottom-left w';
-  document.getElementById('action-btn').textContent = 'Tôi đã trả lời đúng →';
+  document.getElementById('action-btn').textContent = 'Tiếp tục →';
 
   queue.push(queue.shift());
   updateProgress();
 }
 
 function nextCard() {
+  // If last action was wrong, user must retype correct answer first
+  // But since we already moved the card to end of queue, just load next
   loadCard();
 }
 
@@ -980,46 +987,59 @@ function setLoginMode(mode) {
   document.getElementById('login-switch-link').textContent = mode === 'login' ? ' Đăng ký' : ' Đăng nhập';
   document.getElementById('login-err').textContent = '';
 }
-document.getElementById('login-switch-link').addEventListener('click', () => {
-  setLoginMode(loginMode === 'login' ? 'register' : 'login');
-});
-document.getElementById('login-btn').addEventListener('click', async () => {
-  const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-pass').value;
-  const errEl = document.getElementById('login-err');
-  errEl.textContent = '';
-  if (!email || !pass) { errEl.textContent = 'Vui lòng nhập email và mật khẩu.'; return; }
-  document.getElementById('login-btn').textContent = '...';
-  document.getElementById('login-btn').disabled = true;
-  let result;
-  if (loginMode === 'login') {
-    result = await supa.auth.signInWithPassword({ email, password: pass });
-  } else {
-    result = await supa.auth.signUp({ email, password: pass });
-  }
-  document.getElementById('login-btn').disabled = false;
-  setLoginMode(loginMode);
-  if (result.error) { errEl.textContent = result.error.message; return; }
-  if (loginMode === 'register' && !result.data.session) {
-    errEl.style.color = 'var(--accent)';
-    errEl.textContent = 'Kiểm tra email để xác nhận tài khoản!';
-    return;
-  }
-});
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  await supa.auth.signOut();
-});
-supa.auth.onAuthStateChange(async (event, session) => {
-  if (session && session.user) {
-    currentUser = session.user;
-    document.getElementById('topbar-user').textContent = currentUser.email;
-    await loadSets_db();
-    showView('home');
-  } else {
-    currentUser = null;
-    sets = [];
-    showView('login');
-  }
+
+window.addEventListener('load', () => {
+  initSupabase();
+
+  document.getElementById('login-switch-link').addEventListener('click', () => {
+    setLoginMode(loginMode === 'login' ? 'register' : 'login');
+  });
+
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-pass').value;
+    const errEl = document.getElementById('login-err');
+    errEl.style.color = 'var(--danger)';
+    errEl.textContent = '';
+    if (!email || !pass) { errEl.textContent = 'Vui lòng nhập email và mật khẩu.'; return; }
+    document.getElementById('login-btn').textContent = '...';
+    document.getElementById('login-btn').disabled = true;
+    let result;
+    if (loginMode === 'login') {
+      result = await supa.auth.signInWithPassword({ email, password: pass });
+    } else {
+      result = await supa.auth.signUp({ email, password: pass });
+    }
+    document.getElementById('login-btn').disabled = false;
+    setLoginMode(loginMode);
+    if (result.error) { errEl.textContent = result.error.message; return; }
+    if (loginMode === 'register' && !result.data.session) {
+      errEl.style.color = 'var(--accent)';
+      errEl.textContent = 'Kiểm tra email để xác nhận tài khoản!';
+      return;
+    }
+  });
+
+  document.getElementById('login-pass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('login-btn').click();
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await supa.auth.signOut();
+  });
+
+  supa.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+      currentUser = session.user;
+      document.getElementById('topbar-user').textContent = currentUser.email;
+      await loadSets_db();
+      showView('home');
+    } else {
+      currentUser = null;
+      sets = [];
+      showView('login');
+    }
+  });
 });
 </script>
 </body>
