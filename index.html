@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VocabLearn</title>
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:#1a1f35; --card:#212840; --border:#2e3a5c;
@@ -163,57 +163,15 @@ input:checked+.sl-w:before{transform:translateX(20px);}
   .study-content{padding:20px 18px;}
 }
 
-/* ── LOGIN ── */
-.login-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;}
-.login-box{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:40px 36px;width:100%;max-width:400px;}
-.login-box .logo{font-size:26px;font-weight:900;color:var(--accent);margin-bottom:6px;}
-.login-box h2{font-size:20px;font-weight:700;margin-bottom:6px;}
-.login-box p{font-size:14px;color:var(--muted);margin-bottom:28px;}
-.login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
-.login-field label{font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
-.login-input{background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:15px;padding:10px 14px;outline:none;transition:border-color .2s;}
-.login-input:focus{border-color:var(--accent);}
-.login-err{color:var(--danger);font-size:13px;margin-bottom:12px;min-height:18px;}
-.login-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:16px;}
-.login-switch a{color:var(--accent);cursor:pointer;font-weight:600;}
-.login-divider{text-align:center;color:var(--muted);font-size:12px;margin:8px 0;}
 </style>
 </head>
 <body>
 
-<!-- ══════════ LOGIN ══════════ -->
-<div id="login" class="view active">
-  <div class="topbar"><div class="logo">⚡ VocabLearn</div></div>
-  <div class="login-wrap">
-    <div class="login-box">
-      <div class="logo">⚡ VocabLearn</div>
-      <h2 id="login-title">Đăng nhập</h2>
-      <p id="login-subtitle">Chào mừng trở lại!</p>
-      <div class="login-field">
-        <label>Email</label>
-        <input class="login-input" id="login-email" type="email" placeholder="you@example.com"/>
-      </div>
-      <div class="login-field">
-        <label>Mật khẩu</label>
-        <input class="login-input" id="login-pass" type="password" placeholder="••••••••"/>
-      </div>
-      <div class="login-err" id="login-err"></div>
-      <button class="btn btn-primary" style="width:100%;padding:12px;" id="login-btn">Đăng nhập</button>
-      <div class="login-switch">
-        <span id="login-switch-text">Chưa có tài khoản?</span>
-        <a id="login-switch-link"> Đăng ký</a>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ══════════ HOME ══════════ -->
-<div id="home" class="view">
+<div id="home" class="view active">
   <div class="topbar">
     <div class="logo">⚡ VocabLearn</div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
-      <span id="topbar-user" style="font-size:13px;color:var(--muted);"></span>
-      <button class="btn btn-ghost btn-sm" id="logout-btn">Đăng xuất</button>
+    <div style="margin-left:auto;">
       <button class="btn btn-primary" onclick="showCreate()">+ Tạo học phần</button>
     </div>
   </div>
@@ -413,10 +371,43 @@ input:checked+.sl-w:before{transform:translateX(20px);}
 const SUPA_URL = 'https://spubuofmbkmwdlusjkyh.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwdWJ1b2ZtYmttd2RsdXNqa3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODEzOTgsImV4cCI6MjA4ODg1NzM5OH0.gJvVzjbWOaQYg30lIPbl5DqwP4Cv_-kX2YgHCACPUbA';
 let supa = null;
-let currentUser = null;
 
-function initSupabase() {
-  supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+function initSupa() {
+  if (!supa && window.supabase) supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  return !!supa;
+}
+
+async function db_load() {
+  if (!initSupa()) return;
+  const { data, error } = await supa.from('vocabsets').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Load error:', error); return; }
+  sets = (data || []).map(r => ({ id: r.id, title: r.title, cards: r.cards, created: r.created }));
+  renderSets();
+}
+
+async function db_save(entry, idx) {
+  if (!initSupa()) return false;
+  if (idx !== null && sets[idx]?.id) {
+    entry.id = sets[idx].id;
+    const { error } = await supa.from('vocabsets').update({ title: entry.title, cards: entry.cards }).eq('id', entry.id);
+    if (error) { alert('Lỗi lưu: ' + error.message); return false; }
+  } else {
+    const { data, error } = await supa.from('vocabsets').insert({ title: entry.title, cards: entry.cards, created: entry.created }).select().single();
+    if (error) { alert('Lỗi lưu: ' + error.message); return false; }
+    entry.id = data.id;
+  }
+  return true;
+}
+
+async function db_delete(i) {
+  if (!confirm('Xóa học phần này?')) return;
+  const s = sets[i];
+  if (s.id && initSupa()) {
+    const { error } = await supa.from('vocabsets').delete().eq('id', s.id);
+    if (error) { alert('Lỗi xóa: ' + error.message); return; }
+  }
+  sets.splice(i, 1);
+  renderSets();
 }
 
 // ════════════════════════════════
@@ -433,50 +424,7 @@ let correctCount = 0;
 let wrongCount = 0;
 let answered = false;
 
-async function saveSet_db(entry, idx) {
-  if (!currentUser) { alert('Bạn chưa đăng nhập!'); return false; }
-  if (idx !== null && sets[idx] && sets[idx].id) {
-    // update — preserve id on entry
-    entry.id = sets[idx].id;
-    const { error } = await supa.from('vocabsets').update({
-      title: entry.title,
-      cards: entry.cards,
-      updated_at: new Date().toISOString()
-    }).eq('id', entry.id);
-    if (error) { alert('Lỗi lưu: ' + error.message); return false; }
-    return true;
-  } else {
-    // insert
-    const { data, error } = await supa.from('vocabsets').insert({
-      user_id: currentUser.id,
-      title: entry.title,
-      cards: entry.cards,
-      created: entry.created
-    }).select().single();
-    if (error) { alert('Lỗi lưu: ' + error.message); return false; }
-    entry.id = data.id;
-    return true;
-  }
-}
-
-async function loadSets_db() {
-  if (!currentUser) return;
-  const { data, error } = await supa.from('vocabsets').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-  if (error) { console.error(error); return; }
-  sets = (data || []).map(r => ({ id: r.id, title: r.title, cards: r.cards, created: r.created }));
-  renderSets();
-}
-
-async function deleteSet_db(i) {
-  if (!confirm('Xóa học phần này?')) return;
-  const s = sets[i];
-  if (s.id) {
-    const { error } = await supa.from('vocabsets').delete().eq('id', s.id);
-    if (error) { alert('Lỗi xóa: ' + error.message); return; }
-  }
-  sets.splice(i, 1);
-  renderSets();
-}
+function deleteSet(i) { db_delete(i); }
 
 // ════════════════════════════════
 // VIEW ROUTING
@@ -520,7 +468,6 @@ function renderSets() {
     g.appendChild(d);
   });
 }
-function deleteSet(i) { deleteSet_db(i); }
 
 // ════════════════════════════════
 // CREATE
@@ -566,7 +513,7 @@ function renumber() {
   document.querySelectorAll('.card-editor .card-num').forEach((el, i) => el.textContent = i + 1);
 }
 async function saveSet() {
-  const saveBtn = document.querySelector('.create-header .btn-primary');
+  const btn = document.querySelector('.create-header .btn-primary');
   const title = document.getElementById('set-title').value.trim() || 'Học phần chưa đặt tên';
   const cards = [];
   document.querySelectorAll('.card-editor').forEach(el => {
@@ -576,9 +523,9 @@ async function saveSet() {
   });
   if (!cards.length) { alert('Vui lòng thêm ít nhất một thẻ!'); return; }
   const entry = { title, cards, created: new Date().toLocaleDateString('vi-VN') };
-  if (saveBtn) { saveBtn.textContent = 'Đang lưu...'; saveBtn.disabled = true; }
-  const ok = await saveSet_db(entry, editingIdx);
-  if (saveBtn) { saveBtn.textContent = 'Lưu'; saveBtn.disabled = false; }
+  if (btn) { btn.textContent = 'Đang lưu...'; btn.disabled = true; }
+  const ok = await db_save(entry, editingIdx);
+  if (btn) { btn.textContent = 'Lưu'; btn.disabled = false; }
   if (!ok) return;
   if (editingIdx !== null) sets[editingIdx] = entry; else sets.push(entry);
   showHome();
@@ -974,73 +921,20 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ════════════════════════════════
-// AUTH
-// ════════════════════════════════
-let loginMode = 'login';
-function setLoginMode(mode) {
-  loginMode = mode;
-  document.getElementById('login-title').textContent = mode === 'login' ? 'Đăng nhập' : 'Đăng ký';
-  document.getElementById('login-subtitle').textContent = mode === 'login' ? 'Chào mừng trở lại!' : 'Tạo tài khoản mới';
-  document.getElementById('login-btn').textContent = mode === 'login' ? 'Đăng nhập' : 'Đăng ký';
-  document.getElementById('login-switch-text').textContent = mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?';
-  document.getElementById('login-switch-link').textContent = mode === 'login' ? ' Đăng ký' : ' Đăng nhập';
-  document.getElementById('login-err').textContent = '';
+
+// Boot: init supabase then load
+function boot(retries=10) {
+  if (window.supabase && window.supabase.createClient) {
+    initSupa();
+    db_load();
+  } else if (retries > 0) {
+    setTimeout(() => boot(retries - 1), 200);
+  } else {
+    console.error('Supabase CDN failed');
+    renderSets();
+  }
 }
-
-window.addEventListener('load', () => {
-  initSupabase();
-
-  document.getElementById('login-switch-link').addEventListener('click', () => {
-    setLoginMode(loginMode === 'login' ? 'register' : 'login');
-  });
-
-  document.getElementById('login-btn').addEventListener('click', async () => {
-    const email = document.getElementById('login-email').value.trim();
-    const pass = document.getElementById('login-pass').value;
-    const errEl = document.getElementById('login-err');
-    errEl.style.color = 'var(--danger)';
-    errEl.textContent = '';
-    if (!email || !pass) { errEl.textContent = 'Vui lòng nhập email và mật khẩu.'; return; }
-    document.getElementById('login-btn').textContent = '...';
-    document.getElementById('login-btn').disabled = true;
-    let result;
-    if (loginMode === 'login') {
-      result = await supa.auth.signInWithPassword({ email, password: pass });
-    } else {
-      result = await supa.auth.signUp({ email, password: pass });
-    }
-    document.getElementById('login-btn').disabled = false;
-    setLoginMode(loginMode);
-    if (result.error) { errEl.textContent = result.error.message; return; }
-    if (loginMode === 'register' && !result.data.session) {
-      errEl.style.color = 'var(--accent)';
-      errEl.textContent = 'Kiểm tra email để xác nhận tài khoản!';
-      return;
-    }
-  });
-
-  document.getElementById('login-pass').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('login-btn').click();
-  });
-
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    await supa.auth.signOut();
-  });
-
-  supa.auth.onAuthStateChange(async (event, session) => {
-    if (session && session.user) {
-      currentUser = session.user;
-      document.getElementById('topbar-user').textContent = currentUser.email;
-      await loadSets_db();
-      showView('home');
-    } else {
-      currentUser = null;
-      sets = [];
-      showView('login');
-    }
-  });
-});
+boot();
 </script>
 </body>
 </html>
