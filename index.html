@@ -430,14 +430,15 @@ let wrongCount = 0;
 let answered = false;
 
 async function saveSet_db(entry, idx) {
-  if (!currentUser) return;
+  if (!currentUser) { alert('Bạn chưa đăng nhập!'); return false; }
   if (idx !== null && sets[idx] && sets[idx].id) {
-    // update
+    // update — preserve id on entry
+    entry.id = sets[idx].id;
     const { error } = await supa.from('vocabsets').update({
       title: entry.title,
       cards: entry.cards,
       updated_at: new Date().toISOString()
-    }).eq('id', sets[idx].id);
+    }).eq('id', entry.id);
     if (error) { alert('Lỗi lưu: ' + error.message); return false; }
     return true;
   } else {
@@ -561,6 +562,7 @@ function renumber() {
   document.querySelectorAll('.card-editor .card-num').forEach((el, i) => el.textContent = i + 1);
 }
 async function saveSet() {
+  const saveBtn = document.querySelector('.create-header .btn-primary');
   const title = document.getElementById('set-title').value.trim() || 'Học phần chưa đặt tên';
   const cards = [];
   document.querySelectorAll('.card-editor').forEach(el => {
@@ -570,7 +572,9 @@ async function saveSet() {
   });
   if (!cards.length) { alert('Vui lòng thêm ít nhất một thẻ!'); return; }
   const entry = { title, cards, created: new Date().toLocaleDateString('vi-VN') };
+  if (saveBtn) { saveBtn.textContent = 'Đang lưu...'; saveBtn.disabled = true; }
   const ok = await saveSet_db(entry, editingIdx);
+  if (saveBtn) { saveBtn.textContent = 'Lưu'; saveBtn.disabled = false; }
   if (!ok) return;
   if (editingIdx !== null) sets[editingIdx] = entry; else sets.push(entry);
   showHome();
